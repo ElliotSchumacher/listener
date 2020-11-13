@@ -59,6 +59,12 @@ app.post("/temp_sensors", function(req, res) {
 });
 
 /**
+ * This is just a test endpoint for heroku. It just responds with a success message
+ * in plain text format when triggered.
+ */
+app.get("/test", function(req, res) {res.type("text").send("success")});
+
+/**
  * Sends a web request to the IFTTT notify applet with a message informing the
  * applet subscribers that the temperature sensor has not communicated with this server
  * in a specified amount of time.
@@ -83,5 +89,5 @@ function pingIFTTT() {
 
 app.use(express.static("public"));
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT);

@@ -7,10 +7,13 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "author": "",
+  "author": "Elliot Schumacher",
   "license": "ISC",
   "dependencies": {
     "axios": "^0.20.0",
     "express": "^4.17.1"
+  },
+  "engines": {
+    "node": "12.x"
   }
 }
