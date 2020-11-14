@@ -43,6 +43,7 @@ var tempSensorTimer;
 app.post("/temp_sensors", function(req, res) {
     res.type("json");
     let key = req.body.key;
+    console.log("Key: " + key);
     if (!key) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
