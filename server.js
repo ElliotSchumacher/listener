@@ -18,44 +18,75 @@ const axios = require('axios');
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
-// app.use(express.json());
-// app.use(multer().none());
 
 const CLIENT_ERROR = 400;
 const CLIENT_ERROR_JSON = {"error": "You have made an invalid request"};
-const ACCESS_DENIED_ERROR = 401;
-const ACCESS_DENIED_JSON = {"error": "Invalid login credentials"};
-const TEMP_SENSOR_KEY = "2ldisDo23nth";
-const TEMP_SENSOR_DELAY = 20000;
-const TEMP_SENSOR_MESSAGE = "There has been no request made from the temperature sensor";
+const CONNECTED_MSG = "Arduino device connected";
 const IFTTT_URL = "http://maker.ifttt.com/trigger/";
 const IFTTT_KEY = "/with/key/jtVyseeuuPpAePoO0VdfHahhA6xwZHvaeNGDzfsUsmt";
+const UPPER_BOUND_WARM = 100;
+const LOWER_BOUND_WARM = 55;
+const UPPER_BOUND_COOL = 80;
+const LOWER_BOUND_COOL = 55;
+const TEMP_NOTIFICATION_INTERVAL = 60000; // 1800000 30 mins
+const TEMP_LOG_INTERVAL = 120000;
+const ARDUINO_TIMEOUT = 20000;
+const ARDUINO_CONSTANTS = {
+    "TEMP_CHECK_INTERVAL": 30000,
+    "ERROR_INTERVAL": 45000
+};
 
-var tempSensorTimer;
+let timeToValidate = true;
+let timeToLog = true;
+let previousValidate = new Date();
+let previousLog = new Date();
 
-/**
- * This endpoint requires a key post parameter. The key paramter acts as a password.
- * All responses are in JSON format. When this endpoint is called and the key is valid,
- * it resets a timeout that when elapses, notifies the user of not hearing from the 
- * temperature sensor gadget. If there is no key, a 400 status response is sent. If the 
- * key parameter is not valid, a 401 status response is sent.
- */
-app.post("/temp_sensors", function(req, res) {
+app.get("/connect", function(req, res) {
     res.type("json");
-    let key = req.body.key;
-    console.log("Key: " + key);
-    if (!key) {
+    console.log("CONNECT");
+    callIFTTT("notify", CONNECTED_MSG);
+    res.send(ARDUINO_CONSTANTS);
+});
+
+app.post("/error", function(req, res) {
+    res.type("json");
+    console.log("ERROR");
+    let errorType = req.body.errorType;
+    if (!errorType) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
-        if (TEMP_SENSOR_KEY !== key) {
-            res.status(ACCESS_DENIED_ERROR).send(ACCESS_DENIED_JSON);
-        } else {
-            if (tempSensorTimer) {
-                clearTimeout(tempSensorTimer);
+        callIFTTT("notify", "A " + errorType + " error has occured");
+        res.send(ARDUINO_CONSTANTS);
+    }
+});
+
+app.post("/temperature", function(req, res) {
+    res.type("json");
+    console.log("TEMPERATURE");
+    let warmTemp = req.body.warmTemp;
+    let coolTemp = req.body.coolTemp;
+    console.log("WARM:  " + warmTemp + " COOL: " + coolTemp);
+    if (!warmTemp || !coolTemp) {
+        res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
+    } else {
+        if (timeToValidate) {
+            let message = processTemperature(warmTemp, coolTemp);
+            if (message !== "") {
+                callIFTTT("notify", message);
+                timeToValidate = false;
+                setTimeout(() => {
+                    timeToValidate = true;
+                }, TEMP_NOTIFICATION_INTERVAL);
             }
-            tempSensorTimer = setTimeout(pingIFTTT, TEMP_SENSOR_DELAY);
-            res.send({"res": "Recieved"});
         }
+        if (timeToLog) {
+            callIFTTT("temp_log");
+            timeToLog = false;
+            setTimeout(() => {
+                timeToLog = true;
+            }, TEMP_NOTIFICATION_INTERVAL);
+        }
+        res.send(ARDUINO_CONSTANTS);
     }
 });
 
@@ -70,14 +101,16 @@ app.get("/test", function(req, res) {res.type("text").send("success")});
  * applet subscribers that the temperature sensor has not communicated with this server
  * in a specified amount of time.
  */
-function pingIFTTT() {
-    let url = IFTTT_URL + "notify" + IFTTT_KEY;
+function callIFTTT(applet, value1, value2) {
+    let url = IFTTT_URL + applet + IFTTT_KEY;
+    let body = {value1: value1};
+    if (value2) {
+        body.value2 = value2;
+    }
     axios({
         method: 'post',
         url: url,
-        data: {
-            value1: TEMP_SENSOR_MESSAGE
-        }
+        data: body
     })
     .then(function (response) {
         console.log(response);
@@ -87,6 +120,44 @@ function pingIFTTT() {
         console.log(error);
     });
 }
+
+function processTemperature(warmTemp, coolTemp) {
+    let message = "";
+    if ((warmTemp < LOWER_BOUND_WARM) || (UPPER_BOUND_WARM < warmTemp)) {
+        message += tempMessage(warmTemp, "warm");
+    }
+    if ((coolTemp < LOWER_BOUND_COOL) || (UPPER_BOUND_COOL < coolTemp)) {
+        if (message !== "") {
+            message += ". ";
+        }
+        message += tempMessage(coolTemp, "cool");
+    }
+    return message;
+}
+
+function tempMessage(temp, position) {
+    // "The temperature on the WARM side is too HOT (72.3 F)"
+    let adjective;
+    let upperBound;
+    let lowerBound;
+    if (position === "warm") {
+        upperBound = UPPER_BOUND_WARM;
+        lowerBound = LOWER_BOUND_WARM;
+    } else if(position === "cool") {
+        upperBound = UPPER_BOUND_COOL;
+        lowerBound = LOWER_BOUND_COOL;
+    }
+    if (temp < lowerBound) {
+        adjective = "cold";
+    } else if (upperBound < temp) {
+        adjective = "hot";
+    }
+    let message = "The temperature on the " + position + " side is too " + 
+        adjective + "(" + temp + ")";
+    console.log(message);
+    return message;
+}
+
 
 app.use(express.static("public"));
 
