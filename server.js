@@ -19,6 +19,7 @@ const axios = require('axios');
 const app = express();
 app.use(express.urlencoded({ extended: true }));
 
+const TEMP_SENSOR_MESSAGE = "There has been no request made from the temperature sensor"; 
 const CLIENT_ERROR = 400;
 const CLIENT_ERROR_JSON = {"error": "You have made an invalid request"};
 const CONNECTED_MSG = "Arduino device connected";
@@ -26,23 +27,23 @@ const IFTTT_URL = "http://maker.ifttt.com/trigger/";
 const IFTTT_KEY = "/with/key/jtVyseeuuPpAePoO0VdfHahhA6xwZHvaeNGDzfsUsmt";
 const UPPER_BOUND_WARM = 100;
 const LOWER_BOUND_WARM = 55;
-const UPPER_BOUND_COOL = 80;
+const UPPER_BOUND_COOL = 100;
 const LOWER_BOUND_COOL = 55;
 const TEMP_NOTIFICATION_INTERVAL = 60000; // 1800000 30 mins
-const TEMP_LOG_INTERVAL = 120000;
-const ARDUINO_TIMEOUT = 20000;
+const TEMP_LOG_INTERVAL = 30000;
+const ARDUINO_TIMEOUT = 50000;
 const ARDUINO_CONSTANTS = {
     "TEMP_CHECK_INTERVAL": 30000,
     "ERROR_INTERVAL": 45000
 };
 
-let timeToValidate = true;
-let timeToLog = true;
-let previousValidate = new Date();
-let previousLog = new Date();
+let timeoutTimer;
+let previousValidate = Date.now();
+let previousLog = Date.now();
 
 app.get("/connect", function(req, res) {
     res.type("json");
+    resetTimeout();
     console.log("CONNECT");
     callIFTTT("notify", CONNECTED_MSG);
     res.send(ARDUINO_CONSTANTS);
@@ -50,6 +51,7 @@ app.get("/connect", function(req, res) {
 
 app.post("/error", function(req, res) {
     res.type("json");
+    resetTimeout();
     console.log("ERROR");
     let errorType = req.body.errorType;
     if (!errorType) {
@@ -62,6 +64,7 @@ app.post("/error", function(req, res) {
 
 app.post("/temperature", function(req, res) {
     res.type("json");
+    resetTimeout();
     console.log("TEMPERATURE");
     let warmTemp = req.body.warmTemp;
     let coolTemp = req.body.coolTemp;
@@ -69,22 +72,22 @@ app.post("/temperature", function(req, res) {
     if (!warmTemp || !coolTemp) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
-        if (timeToValidate) {
-            let message = processTemperature(warmTemp, coolTemp);
+        let now = Date.now();
+        let message = "";
+        if ((now - previousValidate) >= TEMP_NOTIFICATION_INTERVAL) {
+            message = processTemperature(warmTemp, coolTemp);
             if (message !== "") {
                 callIFTTT("notify", message);
-                timeToValidate = false;
-                setTimeout(() => {
-                    timeToValidate = true;
-                }, TEMP_NOTIFICATION_INTERVAL);
+                previousValidate = Date.now();
             }
         }
-        if (timeToLog) {
-            callIFTTT("temp_log");
-            timeToLog = false;
-            setTimeout(() => {
-                timeToLog = true;
-            }, TEMP_NOTIFICATION_INTERVAL);
+        console.log("now: " + now);
+        console.log("previousLog:" + previousLog);
+        console.log("difference: " + (now - previousLog));
+        if (((now - previousLog) >= TEMP_LOG_INTERVAL) || message !== "") {
+            console.log("LOGGING");
+            callIFTTT("temp_log", warmTemp, coolTemp);
+            previousLog = Date.now();
         }
         res.send(ARDUINO_CONSTANTS);
     }
@@ -158,6 +161,14 @@ function tempMessage(temp, position) {
     return message;
 }
 
+function resetTimeout() {
+    if (timeoutTimer) {
+        clearTimeout(timeoutTimer);
+    }
+    timeoutTimer = setTimeout(() => {
+        callIFTTT("notify", TEMP_SENSOR_MESSAGE);
+    }, ARDUINO_TIMEOUT);
+}
 
 app.use(express.static("public"));
 
