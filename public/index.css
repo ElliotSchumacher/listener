@@ -7,8 +7,7 @@
     margin-left: auto;
     margin-right: auto;
     margin-top: 20px;
-    margin-bottom: 10px;
-} */
+}
 
 /* h1 {
     font-size: 30pt;
@@ -25,23 +24,27 @@
 /* body > section {
     justify-content: space-between;
     width: 70%;
+    margin-top: 10px;
     margin-left: auto;
     margin-right: auto;
 } */
 
-/* label {
-    padding: 20px;
-    font-size: 20pt;
-} */
-
-/* p {
+p {
     margin: 0px;
     font-family: 'Pacifico', cursive;
     font-size: 108pt;
     font-weight: 900;
 } */
 
-/* header, section {
+div > div {
+    margin-left: 15px;
+}
+
+div > label {
+    font-size: 18pt;
+}
+
+header, section {
     display: flex;
 } */
 
@@ -56,9 +59,10 @@
     font-weight: bold;
 } */
 
-/* .temperature-panel > label { */
-
-/* } */
+.temperature-panel > label {
+    padding: 20px;
+    font-size: 20pt;
+}
 
 .temperature-panel {
     display: flex;
