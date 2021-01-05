@@ -2,34 +2,33 @@
 <html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="index.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <!-- <link rel="stylesheet" href="index.css"> -->
     <title>Temperature Sensor</title>
   </head>
-  <body>
-    <header>
-      <input type="button" value="HHH">
-      <h1>Bobbie's Temperature Monitor</h1>
-      <!-- <button>HH</button> -->
-      <input type="button" value="HHH">
+  <body class="container">
+    <header class="row border border-3 rounded">
+      <h1 class="col-8 offset-2 text-center">Bobbie's Temperature Monitor</h1>
+      <button class="col-1 offset-1">HH</button>
     </header>
-    <section>
-      <section class="temperature-panel">
+    <section class="row border border-3 rounded">
+      <section class="col-6 flex-column temperature-panel">
         <label for="warm_upper">Upper Bound</label>
-        <input type="number" id="warm-upper" class="bounds" value="110">
-        <p id="warm-temp" class="warm">70</p>
-        <input type="number" id="warm-lower" class="bounds" value="55">
+        <input type="number" id="warm-upper" value="110">
+        <p id="warm-temp">70</p>
+        <input type="number" id="warm-lower" value="55">
         <label for="warm-lower">Lower Bound</label>
       </section>
-      <section class="temperature-panel">
+      <section class="col-6 temperature-panel">
         <label for="warm-upper">Upper Bound</label>
-        <input type="number" id="cool-upper" class="bounds" value="110">
-        <p id="cool-temp" class="cool">70</p>
-        <input type="number" id="cool-lower" class="bounds" value="55">
+        <input type="number" id="cool-upper" class="" value="110">
+        <p id="cool-temp" class="">70</p>
+        <input type="number" id="cool-lower" class="" value="55">
         <label for="warm-lower">Lower Bound</label>
       </section>
     </section>
-    <section id="settings-panel">
-      <div>
+    <section id="settings-panel" class="row border border-3 rounded">
+      <div class="col-10">
         <div>
           <label for="error-interval">Time between error notifications:</label>
           <input type="number" id="error-interval">
@@ -41,7 +40,7 @@
           <label for="temp-check-interval">seconds</label>
         </div>
       </div>
-      <button>BB</button>
+      <button class="col-1 offset-1">BB</button>
     </section>
   </body>
 </html>
