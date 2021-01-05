@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="index.css">
+    <title>Temperature Sensor</title>
+  </head>
+  <body>
+    <header>
+      <input type="button" value="HHH">
+      <h1>Bobbie's Temperature Monitor</h1>
+      <!-- <button>HH</button> -->
+      <input type="button" value="HHH">
+    </header>
+    <section>
+      <section class="temperature-panel">
+        <label for="warm_upper">Upper Bound</label>
+        <input type="number" id="warm-upper" class="bounds" value="110">
+        <p id="warm-temp" class="warm">70</p>
+        <input type="number" id="warm-lower" class="bounds" value="55">
+        <label for="warm-lower">Lower Bound</label>
+      </section>
+      <section class="temperature-panel">
+        <label for="warm-upper">Upper Bound</label>
+        <input type="number" id="cool-upper" class="bounds" value="110">
+        <p id="cool-temp" class="cool">70</p>
+        <input type="number" id="cool-lower" class="bounds" value="55">
+        <label for="warm-lower">Lower Bound</label>
+      </section>
+    </section>
+    <section id="settings-panel">
+      <div>
+        <div>
+          <label for="error-interval">Time between error notifications:</label>
+          <input type="number" id="error-interval">
+          <label for="error-interval">seconds</label>
+        </div>
+        <div>
+          <label for="temp-check-interval">Time between checking temperatures:</label>
+          <input type="number" id="temp-check-interval">
+          <label for="temp-check-interval">seconds</label>
+        </div>
+      </div>
+      <button>BB</button>
+    </section>
+  </body>
+</html>
