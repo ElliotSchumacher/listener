@@ -1,86 +1,46 @@
-/* @import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap'); */
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
 
-/* header {
-    justify-content: space-between;
+header {
+    position: relative;
     width: 70%;
     margin-left: auto;
     margin-right: auto;
     margin-top: 20px;
+    margin-bottom: 10px;
 }
 
-/* h1 {
-    font-size: 30pt;
-} */
-
-/* button {
-    justify-self: flex-end;
-} */
-
-/* body {
+body {
     background-color: whitesmoke;
-} */
-
-/* body > section {
-    justify-content: space-between;
-    width: 70%;
-    margin-top: 10px;
-    margin-left: auto;
-    margin-right: auto;
-} */
-
-p {
-    margin: 0px;
-    font-family: 'Pacifico', cursive;
-    font-size: 108pt;
-    font-weight: 900;
-} */
-
-div > div {
-    margin-left: 15px;
 }
 
-div > label {
-    font-size: 18pt;
+button {
+    float: right;
+    margin-top: 5px;
 }
 
-header, section {
-    display: flex;
-} */
-
-/* header, .temperature-panel, #settings-panel {
+header, .temperature-panel {
     border-radius: 8px;
     border: 3px gray solid;
     background-color: white;
-} */
-
-/* h1, label {
-    font-family: 'Roboto', sans-serif;
-    font-weight: bold;
-} */
-
-.temperature-panel > label {
-    padding: 20px;
-    font-size: 20pt;
 }
 
-.temperature-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-evenly;
-    align-items: center;
+.container {
+    width: 70%;
 }
 
-/* .bounds {
-    width: 50%;
-    height: 30px;
-    font-size: 21pt;
-} */
-
-/* .cool {
+.cool {
     color: lightskyblue;
-} */
+}
 
-/* .warm {
+.warm {
     color: red;
-} */
+}
+
+.temp-display {
+    /* height: -10px; */
+    /* margin-top: 15px; */
+    font-family: 'Pacifico', cursive;
+    font-size: 108pt;
+    font-weight: 900;
+}
