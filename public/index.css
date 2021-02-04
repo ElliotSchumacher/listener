@@ -38,8 +38,6 @@ header, .temperature-panel {
 }
 
 .temp-display {
-    /* height: -10px; */
-    /* margin-top: 15px; */
     font-family: 'Pacifico', cursive;
     font-size: 108pt;
     font-weight: 900;

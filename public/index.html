@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous"></script>
+    <script src="index.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
     <link rel="stylesheet" href="index.css">
     <title>Temperature Sensor</title>
@@ -22,19 +23,19 @@
         <section class="col-xs-12 col-md-6">
           <div class="d-flex flex-column align-items-center py-4 temperature-panel">
             <label for="warm_upper" class="fs-4 fw-bold">Upper Bound</label>
-            <input type="number" id="warm-upper" class="fs-4 my-3" value="110">
-            <div id="warm-temp" class="warm temp-display">70</div>
-            <input type="number" id="warm-lower" class="fs-4 mt-4 mb-3" value="55">
+            <input type="number" id="warm-upper" class="fs-4 my-3">
+            <div id="warm-temp" class="warm temp-display"></div>
+            <input type="number" id="warm-lower" class="fs-4 mt-4 mb-3">
             <label for="warm-lower" class="fs-4 fw-bold">Lower Bound</label>
           </div>
         </section>
         <section class="col-xs-12 col-md-6">
           <div class="d-flex flex-column align-items-center py-4 temperature-panel">
-            <label for="warm-upper" class="fs-4 fw-bold">Upper Bound</label>
-            <input type="number" id="cool-upper" class="fs-4 my-3" value="110">
-            <div id="cool-temp" class="cool temp-display">70</div>
-            <input type="number" id="cool-lower" class="fs-4 mt-4 mb-3" value="55">
-            <label for="warm-lower" class="fs-4 fw-bold">Lower Bound</label>
+            <label for="cool-upper" class="fs-4 fw-bold">Upper Bound</label>
+            <input type="number" id="cool-upper" class="fs-4 my-3">
+            <div id="cool-temp" class="cool temp-display"></div>
+            <input type="number" id="cool-lower" class="fs-4 mt-4 mb-3">
+            <label for="cool-lower" class="fs-4 fw-bold">Lower Bound</label>
           </div>
         </section>
       </div>
@@ -45,23 +46,23 @@
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title" id="staticBackdropLabel">Modal title</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <!-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> -->
           </div>
           <div class="modal-body">
-            <div>
-              <label for="error-interval">Time between error notifications:</label>
-              <input type="number" id="error-interval">
-              <label for="error-interval">seconds</label>
+            <label for="error-interval">Time between error notifications:</label>
+            <div class="input-group">
+              <input type="number" id="error-interval" class="form-control" style="width: 10px;">
+              <span class="input-group-text">seconds</span>
             </div>
-            <div>
-              <label for="temp-check-interval">Time between checking temperatures:</label>
-              <input type="number" id="temp-check-interval">
-              <label for="temp-check-interval">seconds</label>
+            <label for="temp-check-interval">Time between checking temperatures:</label>
+            <div class="input-group">
+              <input type="number" id="temp-check-interval" class="form-control">
+              <span class="input-group-text">seconds</span>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="button" class="btn btn-primary">Save</button>
+            <button type="button" id="save-btn" class="btn btn-primary">Save</button>
           </div>
         </div>
       </div>

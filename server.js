@@ -14,10 +14,13 @@
 "use strict";
 
 const express = require("express"); 
+const multer = require("multer");
 const axios = require('axios');
+const { json } = require("express");
 
 const app = express();
-app.use(express.urlencoded({ extended: true }));
+// app.use(express.urlencoded({ extended: true }));
+app.use(multer().none());
 
 const TEMP_SENSOR_MESSAGE = "There has been no request made from the temperature sensor"; 
 const CLIENT_ERROR = 400;
@@ -25,16 +28,24 @@ const CLIENT_ERROR_JSON = {"error": "You have made an invalid request"};
 const CONNECTED_MSG = "Arduino device connected";
 const IFTTT_URL = "http://maker.ifttt.com/trigger/";
 const IFTTT_KEY = "/with/key/jtVyseeuuPpAePoO0VdfHahhA6xwZHvaeNGDzfsUsmt";
-const UPPER_BOUND_WARM = 100;
-const LOWER_BOUND_WARM = 55;
-const UPPER_BOUND_COOL = 100;
-const LOWER_BOUND_COOL = 55;
 const TEMP_NOTIFICATION_INTERVAL = 60000; // 1800000 30 mins
 const TEMP_LOG_INTERVAL = 30000;
 const ARDUINO_TIMEOUT = 50000;
-const ARDUINO_CONSTANTS = {
-    "TEMP_CHECK_INTERVAL": 30000,
-    "ERROR_INTERVAL": 45000
+
+let arduinoConstants = {
+    "errorInterval": 45000,
+    "tempCheckInterval": 30000
+};
+let bounds = {
+    "warmUpper": 0,
+    "warmLower": 0,
+    "coolUpper": 0,
+    "coolLower": 0
+};
+let lastTemperature = {
+    "time": Date.now(),
+    "warmTemp": 0,
+    "coolTemp": 0
 };
 
 let timeoutTimer;
@@ -46,7 +57,7 @@ app.get("/connect", function(req, res) {
     resetTimeout();
     console.log("CONNECT");
     callIFTTT("notify", CONNECTED_MSG);
-    res.send(ARDUINO_CONSTANTS);
+    res.send(arduinoConstants);
 });
 
 app.post("/error", function(req, res) {
@@ -58,7 +69,7 @@ app.post("/error", function(req, res) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
         callIFTTT("notify", "A " + errorType + " error has occured");
-        res.send(ARDUINO_CONSTANTS);
+        res.send(arduinoConstants);
     }
 });
 
@@ -66,13 +77,15 @@ app.post("/temperature", function(req, res) {
     res.type("json");
     resetTimeout();
     console.log("TEMPERATURE");
-    let warmTemp = req.body.warmTemp;
-    let coolTemp = req.body.coolTemp;
+    let warmTemp = parseInt(req.body.warmTemp);
+    let coolTemp = parseInt(req.body.coolTemp);
     console.log("WARM:  " + warmTemp + " COOL: " + coolTemp);
     if (!warmTemp || !coolTemp) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
         let now = Date.now();
+        lastTemperature.warmTemp = warmTemp;
+        lastTemperature.coolTemp = coolTemp;
         let message = "";
         if ((now - previousValidate) >= TEMP_NOTIFICATION_INTERVAL) {
             message = processTemperature(warmTemp, coolTemp);
@@ -89,9 +102,60 @@ app.post("/temperature", function(req, res) {
             callIFTTT("temp_log", warmTemp, coolTemp);
             previousLog = Date.now();
         }
-        res.send(ARDUINO_CONSTANTS);
+        res.send(arduinoConstants);
     }
 });
+
+app.get("/get_bounds_and_settings", function(req, res) {
+    res.type("json");
+    let data = bounds;
+    data.errorInterval = arduinoConstants.errorInterval / 1000;
+    data.tempCheckInterval = arduinoConstants.tempCheckInterval / 1000;
+    res.send(data);
+});
+
+app.get("/get_temperatures", function(req, res) {
+    res.type("json");
+    res.send(lastTemperature);
+});
+
+app.post("/save_settings", function(req, res) {
+    res.type("json");
+    let tempCheckInterval = req.body.tempCheckInterval;
+    let errorInterval = req.body.errorInterval;
+    if (!tempCheckInterval || !errorInterval) {
+        res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
+    } else {
+        console.log("errorInterval-OLD: " + arduinoConstants.errorInterval);
+        console.log("tempCheckInterval-OLD " + arduinoConstants.tempCheckInterval);
+        arduinoConstants.errorInterval = errorInterval;
+        arduinoConstants.tempCheckInterval = tempCheckInterval;
+        console.log("errorInterval-NEW: " + arduinoConstants.errorInterval);
+        console.log("tempCheckInterval-NEW " + arduinoConstants.tempCheckInterval);
+        res.send({"status": "Success"});
+    }
+});
+
+app.post("/save_bounds", function(req, res) {
+    res.type("json");
+    let warmUpper = req.body.warmUpper;
+    let warmLower = req.body.warmLower;
+    let coolUpper = req.body.coolUpper;
+    let coolLower = req.body.coolLower;
+    if(!warmUpper || !warmLower || !coolUpper || !coolLower) {
+        res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
+    } else {
+        bounds.warmUpper = warmUpper;
+        bounds.warmLower = warmLower;
+        bounds.coolUpper = coolUpper;
+        bounds.coolLower = coolLower;
+        console.log("warmUpper: " + bounds.warmUpper);
+        console.log("warmLower: " + bounds.warmLower);
+        console.log("coolUpper: " + bounds.coolUpper);
+        console.log("coolLower: " + bounds.coolLower);
+        res.send({"status": "Success"});
+    }
+})
 
 /**
  * This is just a test endpoint for heroku. It just responds with a success message
@@ -126,10 +190,10 @@ function callIFTTT(applet, value1, value2) {
 
 function processTemperature(warmTemp, coolTemp) {
     let message = "";
-    if ((warmTemp < LOWER_BOUND_WARM) || (UPPER_BOUND_WARM < warmTemp)) {
+    if ((warmTemp < bounds.warmLower) || (bounds.warmUpper < warmTemp)) {
         message += tempMessage(warmTemp, "warm");
     }
-    if ((coolTemp < LOWER_BOUND_COOL) || (UPPER_BOUND_COOL < coolTemp)) {
+    if ((coolTemp < bounds.coolLower) || (bounds.coolUpper < coolTemp)) {
         if (message !== "") {
             message += ". ";
         }
@@ -144,11 +208,11 @@ function tempMessage(temp, position) {
     let upperBound;
     let lowerBound;
     if (position === "warm") {
-        upperBound = UPPER_BOUND_WARM;
-        lowerBound = LOWER_BOUND_WARM;
+        upperBound = bounds.warmUpper;
+        lowerBound = bounds.warmLower;
     } else if(position === "cool") {
-        upperBound = UPPER_BOUND_COOL;
-        lowerBound = LOWER_BOUND_COOL;
+        upperBound = bounds.coolUpper;
+        lowerBound = bounds.coolLower;
     }
     if (temp < lowerBound) {
         adjective = "cold";
@@ -168,6 +232,22 @@ function resetTimeout() {
     timeoutTimer = setTimeout(() => {
         callIFTTT("notify", TEMP_SENSOR_MESSAGE);
     }, ARDUINO_TIMEOUT);
+}
+
+function combineJson(obj1, obj2) {
+    const result = {};
+    let key;
+    for (key in obj1) {
+        if(obj1.hasOwnProperty(key)){
+            result[key] = obj1[key];
+        }
+    }
+    for (key in obj2) {
+        if(obj2.hasOwnProperty(key)){
+            result[key] = obj2[key];
+        }
+    }
+    return result;
 }
 
 app.use(express.static("public"));
