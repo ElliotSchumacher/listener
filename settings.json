@@ -1,0 +1,12 @@
+{
+    "arduinoConstants": {
+        "errorInterval": 45500,
+        "tempCheckInterval": 30500
+    },
+    "bounds": {
+        "warmUpper": "10",
+        "warmLower": "10",
+        "coolUpper": "20",
+        "coolLower": "12"
+    }
+}

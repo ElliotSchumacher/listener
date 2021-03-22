@@ -15,55 +15,84 @@
 
 const express = require("express"); 
 const multer = require("multer");
+const fs = require("fs").promises;
 const axios = require('axios');
 const { json } = require("express");
 
 const app = express();
-// app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 app.use(multer().none());
 
 const TEMP_SENSOR_MESSAGE = "There has been no request made from the temperature sensor"; 
 const CLIENT_ERROR = 400;
 const CLIENT_ERROR_JSON = {"error": "You have made an invalid request"};
+const SERVER_ERROR = 500;
+const SERVER_ERROR_JSON = {"error": "There has been an error on the server"};
 const CONNECTED_MSG = "Arduino device connected";
 const IFTTT_URL = "http://maker.ifttt.com/trigger/";
 const IFTTT_KEY = "/with/key/jtVyseeuuPpAePoO0VdfHahhA6xwZHvaeNGDzfsUsmt";
 const TEMP_NOTIFICATION_INTERVAL = 60000; // 1800000 30 mins
 const TEMP_LOG_INTERVAL = 30000;
 const ARDUINO_TIMEOUT = 50000;
+const SETTINGS_FILE = "settings.json";
 
-let arduinoConstants = {
-    "errorInterval": 45000,
-    "tempCheckInterval": 30000
-};
-let bounds = {
-    "warmUpper": 0,
-    "warmLower": 0,
-    "coolUpper": 0,
-    "coolLower": 0
-};
 let lastTemperature = {
     "time": Date.now(),
     "warmTemp": 0,
     "coolTemp": 0
 };
 
+let arduinoConstants;
+let bounds;
 let timeoutTimer;
 let previousValidate = Date.now();
 let previousLog = Date.now();
 
+initialize();
+
+/**
+ * Reads in the settings data previously set by the user.
+ */
+async function initialize() {
+    console.log("initializing");
+    try {
+        let settings = await fs.readFile(SETTINGS_FILE, "utf8");
+        settings = JSON.parse(settings);
+        arduinoConstants = settings.arduinoConstants;
+        bounds = settings.bounds;
+        console.log(arduinoConstants);
+        console.log(bounds);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+/**
+ * Sends a notification to IFTTT notifying the user that a temperature sensor
+ * has connected to the server. Also restarts the arduino timeout.
+ * Type: Get
+ * Response type: JSON
+ */
 app.get("/connect", function(req, res) {
     res.type("json");
     resetTimeout();
-    console.log("CONNECT");
+    console.log("---CONNECT---");
     callIFTTT("notify", CONNECTED_MSG);
+    console.log("---END_CONNECT---\n");
     res.send(arduinoConstants);
 });
 
+/*
+ * Sends a notification to IFTTT notifying the user that an error has
+ * occured and what the error was. Also restarts the arduino timeout.
+ * Type: Post
+ * Body: errorType
+ * Response type: JSON
+ */
 app.post("/error", function(req, res) {
     res.type("json");
     resetTimeout();
-    console.log("ERROR");
+    console.log("---ERROR---");
     let errorType = req.body.errorType;
     if (!errorType) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
@@ -73,10 +102,17 @@ app.post("/error", function(req, res) {
     }
 });
 
+/*
+ * Updates the saved temperatures with the temperatures sent by the temperature sensor.
+ * Also restarts the arduino timeout.
+ * Type: Post
+ * Body: warmTemp, coolTemp
+ * Response type: JSON
+ */
 app.post("/temperature", function(req, res) {
     res.type("json");
     resetTimeout();
-    console.log("TEMPERATURE");
+    console.log("---TEMPERATURE---");
     let warmTemp = parseInt(req.body.warmTemp);
     let coolTemp = parseInt(req.body.coolTemp);
     console.log("WARM:  " + warmTemp + " COOL: " + coolTemp);
@@ -102,42 +138,73 @@ app.post("/temperature", function(req, res) {
             callIFTTT("temp_log", warmTemp, coolTemp);
             previousLog = Date.now();
         }
+        console.log("---END_TEMPERATURE---\n");
         res.send(arduinoConstants);
     }
 });
 
+/**
+ * Sends the client the settings and temperature bounds.
+ * Type: Get
+ * Response type: JSON
+ */
 app.get("/get_bounds_and_settings", function(req, res) {
     res.type("json");
-    let data = bounds;
+    console.log("---GET_BOUNDS_AND_SETTINGS---");
+    let data = Object.assign({}, bounds);
     data.errorInterval = arduinoConstants.errorInterval / 1000;
     data.tempCheckInterval = arduinoConstants.tempCheckInterval / 1000;
     res.send(data);
 });
 
+/**
+ * Sends the client the latest temperature data.
+ * Type: Get
+ * Response Type: JSON
+ */
 app.get("/get_temperatures", function(req, res) {
     res.type("json");
+    console.log("---GET_TEMPERATURES---");
     res.send(lastTemperature);
 });
 
-app.post("/save_settings", function(req, res) {
+/**
+ * Saves the newly specified settings so that the settings remain across server restarts.
+ * Type: POST
+ * Body: tempCheckInterval, errorInterval
+ * Response Type: JSON
+ */
+app.post("/save_settings", async function(req, res) {
     res.type("json");
+    console.log("---SAVE_SETTINGS---");
     let tempCheckInterval = req.body.tempCheckInterval;
     let errorInterval = req.body.errorInterval;
     if (!tempCheckInterval || !errorInterval) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
-        console.log("errorInterval-OLD: " + arduinoConstants.errorInterval);
-        console.log("tempCheckInterval-OLD " + arduinoConstants.tempCheckInterval);
         arduinoConstants.errorInterval = errorInterval;
         arduinoConstants.tempCheckInterval = tempCheckInterval;
-        console.log("errorInterval-NEW: " + arduinoConstants.errorInterval);
-        console.log("tempCheckInterval-NEW " + arduinoConstants.tempCheckInterval);
+        try {
+            await saveSettingsToFile();
+        } catch (error) {
+            console.log(error);
+            res.type(SERVER_ERROR).send(SERVER_ERROR_JSON);
+        }
         res.send({"status": "Success"});
     }
 });
 
-app.post("/save_bounds", function(req, res) {
+/**
+ * Saves the newly specified temperature boundries so that they aren't returned
+ * to the server defaults upon server restart.
+ * Type: POST
+ * Body: warmUpper, warmLower, coolUpper, coolLower
+ * Response Type: JSON
+ */
+app.post("/save_bounds", async function(req, res) {
     res.type("json");
+    console.log("---SAVE_BOUNDS---");
+    console.log(req.body);
     let warmUpper = req.body.warmUpper;
     let warmLower = req.body.warmLower;
     let coolUpper = req.body.coolUpper;
@@ -149,10 +216,12 @@ app.post("/save_bounds", function(req, res) {
         bounds.warmLower = warmLower;
         bounds.coolUpper = coolUpper;
         bounds.coolLower = coolLower;
-        console.log("warmUpper: " + bounds.warmUpper);
-        console.log("warmLower: " + bounds.warmLower);
-        console.log("coolUpper: " + bounds.coolUpper);
-        console.log("coolLower: " + bounds.coolLower);
+        try {
+            await saveSettingsToFile();
+        } catch (error) {
+            console.log(error);
+            res.status(SERVER_ERROR).send(SERVER_ERROR_JSON);
+        }
         res.send({"status": "Success"});
     }
 })
@@ -180,14 +249,23 @@ function callIFTTT(applet, value1, value2) {
         data: body
     })
     .then(function (response) {
-        console.log(response);
-        console.log("<-----STATUS-----> " + response.status);
+        // console.log(response);
+        // console.log("<-----STATUS-----> " + response.status);
     })
     .catch(function (error) {
         console.log(error);
     });
 }
 
+/**
+ * Accepts the current temperatures as parameters and then decideds if a message
+ * should be sent or not and returns the message.
+ * @param {double} warmTemp - The temperature on the warm side.
+ * @param {double} coolTemp - The temperature on the cool side.
+ * @return {String} - The message telling the user if a temperature is outside of
+ *                    its set boundry. If no temperature is outside of its boundry,
+ *                    an empty string is returned.
+ */
 function processTemperature(warmTemp, coolTemp) {
     let message = "";
     if ((warmTemp < bounds.warmLower) || (bounds.warmUpper < warmTemp)) {
@@ -202,6 +280,15 @@ function processTemperature(warmTemp, coolTemp) {
     return message;
 }
 
+/**
+ * Constructs and returns a message that tells the user which temperature sensor is
+ * reporting temperatures outside its bounds and whether the temperature is too
+ * high or too low.
+ * @param {int} temp - The temperature to write the message about.
+ * @param {String} position - The name of temperature sensor that the temperature is from.
+ * @return {String} - A message that says which sensor is outside its bounds and the 
+ *                    direction in which it is outside the boundry.
+ */
 function tempMessage(temp, position) {
     // "The temperature on the WARM side is too HOT (72.3 F)"
     let adjective;
@@ -221,10 +308,23 @@ function tempMessage(temp, position) {
     }
     let message = "The temperature on the " + position + " side is too " + 
         adjective + "(" + temp + ")";
-    console.log(message);
+    // console.log(message);
     return message;
 }
 
+/**
+ * Saves the settings for the arduino and the temperature bounds to a file.
+ */
+async function saveSettingsToFile() {
+    let settings = {};
+    settings.arduinoConstants = arduinoConstants;
+    settings.bounds = bounds;
+    await fs.writeFile(SETTINGS_FILE, JSON.stringify(settings), "utf8");
+}
+
+/**
+ * Restarts the timeout that pings IFTTT with the no response alert.
+ */
 function resetTimeout() {
     if (timeoutTimer) {
         clearTimeout(timeoutTimer);
@@ -234,6 +334,12 @@ function resetTimeout() {
     }, ARDUINO_TIMEOUT);
 }
 
+/**
+ * Creates a new object containing the contents of both obj1 and obj2 and returns it.
+ * @param {object} obj1 - The first object to be combined.
+ * @param {object} obj2 - The second object to be combined
+ * @return {object} A new object that is a combination of obj1 and obj2.
+ */
 function combineJson(obj1, obj2) {
     const result = {};
     let key;
