@@ -21,6 +21,7 @@ CREATE TABLE Nodes(
     user_id INT NOT NULL,
     order_num INT NOT NULL,
     name VARCHAR(32) NOT NULL,
+    last_contact DATETIME,
     error_leds BOOLEAN DEFAULT TRUE,
     PRIMARY KEY (id),
     FOREIGN KEY (user_id) REFERENCES Users(id)
