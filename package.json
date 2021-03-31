@@ -10,10 +10,12 @@
   "author": "Elliot Schumacher",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.20.0",
+    "axios": "^0.21.1",
+    "cookie-parser": "^1.4.5",
     "express": "^4.17.1",
     "fs": "0.0.1-security",
-    "multer": "^1.4.2"
+    "multer": "^1.4.2",
+    "mysql2": "^2.2.5"
   },
   "engines": {
     "node": "12.x"
