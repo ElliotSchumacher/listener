@@ -17,9 +17,17 @@ const express = require("express");
 const multer = require("multer");
 const fs = require("fs").promises;
 const axios = require('axios');
+const mysql = require("mysql2/promise");
 const { json } = require("express");
 
 const app = express();
+const db = mysql.createPool({
+    host: process.env.DB_URL || 'localhost',
+    port: process.env.DB_PORT || '8889',
+    user: process.env.DB_USERNAME || 'root',
+    password: process.env.DB_PASSWORD || 'root',
+    database: process.env.DB_NAME || 'tempSensors'
+});
 app.use(express.urlencoded({ extended: true }));
 app.use(multer().none());
 
@@ -51,35 +59,34 @@ let previousLog = Date.now();
 initialize();
 
 /**
- * Reads in the settings data previously set by the user.
- */
-async function initialize() {
-    console.log("initializing");
-    try {
-        let settings = await fs.readFile(SETTINGS_FILE, "utf8");
-        settings = JSON.parse(settings);
-        arduinoConstants = settings.arduinoConstants;
-        bounds = settings.bounds;
-        console.log(arduinoConstants);
-        console.log(bounds);
-    } catch (error) {
-        console.error(error);
-    }
-}
-
-/**
  * Sends a notification to IFTTT notifying the user that a temperature sensor
- * has connected to the server. Also restarts the arduino timeout.
- * Type: Get
+ * has connected to the server and which one it was.
+ * Type: POST
+ * Body: userName, nodeName
  * Response type: JSON
  */
-app.get("/connect", function(req, res) {
+app.post("/connect", async function(req, res) {
     res.type("json");
-    resetTimeout();
     console.log("---CONNECT---");
-    callIFTTT("notify", CONNECTED_MSG);
-    console.log("---END_CONNECT---\n");
-    res.send(arduinoConstants);
+    let userName = req.body.userName;
+    let nodeName = req.body.nodeName;
+    if (!userName || !nodeName) {
+        res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
+    } else {
+    try {
+            await updateLastContact(nodeName, userName);
+            let connectedMessage = "The temperature sensor " + nodeName + " has been connected";
+            callIFTTT("notify", connectedMessage);
+            res.send({"status":"Success"});
+    } catch (error) {
+            // console.error(error);
+            if (error.code === "ENOREC") {
+                res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
+            } else {
+                res.status(SERVER_ERROR).send(SERVER_ERROR_JSON);
+    }
+}
+    }
 });
 
 /*
@@ -230,7 +237,25 @@ app.post("/save_bounds", async function(req, res) {
  * This is just a test endpoint for heroku. It just responds with a success message
  * in plain text format when triggered.
  */
-app.get("/test", function(req, res) {res.type("text").send("success")});
+app.get("/test", function(req, res) {console.log("---TEST---");res.type("text").send("success")});
+
+/**
+ * Updates the last time a node has sent a request to the server.
+ * @param {String} nodeName - The name of the node.
+ * @param {String} userName - The name of the user.
+ */
+ async function updateLastContact(nodeName, userName) {
+    let query = "UPDATE Nodes INNER JOIN Users ON Nodes.user_id = Users.id SET last_contact = NOW() " + 
+        "WHERE Nodes.name = ? AND Users.name = ?";
+    let parameters = [nodeName, userName];
+    let [result] = await db.query(query, parameters);
+    // console.log(result);
+    if (result.affectedRows === 0) {
+        let error = new Error();
+        error.code = "ENOREC";
+        throw error;
+    }
+}
 
 /**
  * Sends a web request to the IFTTT notify applet with a message informing the
