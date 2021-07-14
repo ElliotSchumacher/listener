@@ -13,9 +13,14 @@
  */
 "use strict";
 
+
+// USE nanoid FOR GUID CREATION
+
+
 const express = require("express"); 
 const multer = require("multer");
 const fs = require("fs").promises;
+const cookieParser = require('cookie-parser');
 const axios = require('axios');
 const mysql = require("mysql2/promise");
 const { json } = require("express");
@@ -30,6 +35,7 @@ const db = mysql.createPool({
 });
 app.use(express.urlencoded({ extended: true }));
 app.use(multer().none());
+// app.use(cookieParser); // Causes Problems
 
 const TEMP_SENSOR_MESSAGE = "There has been no request made from the temperature sensor"; 
 const CLIENT_ERROR = 400;
@@ -50,13 +56,11 @@ let lastTemperature = {
     "coolTemp": 0
 };
 
-let arduinoConstants;
+// let arduinoConstants;
 let bounds;
 let timeoutTimer;
 let previousValidate = Date.now();
 let previousLog = Date.now();
-
-initialize();
 
 /**
  * Sends a notification to IFTTT notifying the user that a temperature sensor
@@ -73,19 +77,19 @@ app.post("/connect", async function(req, res) {
     if (!userName || !nodeName) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
-    try {
+        try {
             await updateLastContact(nodeName, userName);
-            let connectedMessage = "The temperature sensor " + nodeName + " has been connected";
-            callIFTTT("notify", connectedMessage);
+            let message = "The temperature sensor " + nodeName + " has been connected";
+            callIFTTT("notify", message);
             res.send({"status":"Success"});
-    } catch (error) {
+        } catch (error) {
             // console.error(error);
             if (error.code === "ENOREC") {
                 res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
             } else {
                 res.status(SERVER_ERROR).send(SERVER_ERROR_JSON);
-    }
-}
+            }
+        }
     }
 });
 
@@ -96,18 +100,37 @@ app.post("/connect", async function(req, res) {
  * Body: errorType
  * Response type: JSON
  */
-app.post("/error", function(req, res) {
+app.post("/error", async function(req, res) {
     res.type("json");
-    resetTimeout();
     console.log("---ERROR---");
+    let userName = req.body.userName;
+    let nodeName = req.body.nodeName;
     let errorType = req.body.errorType;
-    if (!errorType) {
+    if (!userName || !nodeName || !errorType) {
         res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
     } else {
-        callIFTTT("notify", "A " + errorType + " error has occured");
-        res.send(arduinoConstants);
+        try {
+            await updateLastContact(nodeName, userName);
+            let message = "A " + errorType + " error has occured on " + nodeName;
+            callIFTTT("notify", message);
+            let arduinoConstants = await getArduinoConstants(nodeName, userName);
+            res.send(arduinoConstants);
+        } catch (error) {
+            if (error.code === "ENOREC") {
+                res.status(CLIENT_ERROR).send(CLIENT_ERROR_JSON);
+            } else {
+                res.status(SERVER_ERROR).send(SERVER_ERROR_JSON);
+            }
+        }
     }
 });
+/**
+ * @return {object} The 
+ * tempCheckInterval, errorInterval, addresses, displayErrorLEDs
+ */
+async function getArduinoConstants(nodeName, userName) {
+    let query = ""
+}
 
 /*
  * Updates the saved temperatures with the temperatures sent by the temperature sensor.
